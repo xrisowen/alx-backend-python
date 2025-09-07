@@ -3,7 +3,7 @@ from seed import connect_to_prodev
 
 TABLE_NAME = "user_data"
 
-def stream_users(connection):
+def stream_users():
     """
     A generator function that streams rows from the 'user_data' table
     one by one, to conserve memory.
@@ -17,6 +17,7 @@ def stream_users(connection):
     cursor = None
     try:
         # Use buffered=True for fetching rows one at a time for large datasets
+        connection = connect_to_prodev()
         cursor = connection.cursor(buffered=True)
         query = f"SELECT * FROM {TABLE_NAME}"
         cursor.execute(query)
@@ -35,15 +36,8 @@ def stream_users(connection):
 
 
 if __name__ == "__main__":
-    # 1. Connect to the specific database
-    db_conn = connect_to_prodev()
-    if not db_conn:
-        exit()
-
-    print("\n--- Demonstrating Data Streaming with Generator ---")
-    
-    # 6. Use the generator to stream data
-    data_stream = stream_users(db_conn)
+    # 1. Use the generator to stream data
+    data_stream = stream_users()
 
     # The for loop iterates over the generator, fetching one row at a time
     for i, row in enumerate(data_stream):
@@ -51,7 +45,6 @@ if __name__ == "__main__":
         if i > 5: break
     
     # Close the database connection when finished
-    db_conn.close()
     print("\nDatabase connection closed.")
 
 
