@@ -1,4 +1,4 @@
-from seed import connect_to_prodev, TABLE_NAME
+from seed import connect_to_prodev
 
 def stream_users_in_batches(batch_size):
     conn = None
@@ -8,7 +8,7 @@ def stream_users_in_batches(batch_size):
         if not conn:
             return
         cursor = conn.cursor(buffered=True)
-        cursor.execute(f"SELECT * FROM {TABLE_NAME}")
+        cursor.execute(f"SELECT * FROM user_data")
         
         while True:
             # fetchmany() fetches a chunk of rows at a time
