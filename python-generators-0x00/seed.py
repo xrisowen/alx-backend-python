@@ -95,7 +95,7 @@ def create_table(connection):
         if 'cursor' in locals() and cursor:
             cursor.close()
 
-def insert_data(connection, data_file="user_data.csv"):
+def insert_data(connection, data_file="userdata.csv"):
     """
     Inserts data from a CSV file into the 'user_data' table,
     auto-generating UUIDs for each entry.
