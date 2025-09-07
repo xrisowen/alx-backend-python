@@ -3,7 +3,7 @@ from seed import connect_to_prodev
 
 TABLE_NAME = "user_data"
 
-def stream_user_rows(connection):
+def stream_users(connection):
     """
     A generator function that streams rows from the 'user_data' table
     one by one, to conserve memory.
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     print("\n--- Demonstrating Data Streaming with Generator ---")
     
     # 6. Use the generator to stream data
-    data_stream = stream_user_rows(db_conn)
+    data_stream = stream_users(db_conn)
 
     # The for loop iterates over the generator, fetching one row at a time
     for i, row in enumerate(data_stream):
