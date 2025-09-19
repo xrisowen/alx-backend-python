@@ -74,19 +74,17 @@ class TestGithubOrgClient(unittest.TestCase):
 class TestIntegrationGithubOrgClient(unittest.TestCase):
     """Integration tests for the GithubOrgClient class."""
 
-    @classmethod
-    def setUpClass(cls):
-        """Sets up the class with mock HTTP requests."""
+    def setUp(self):
+        """Sets up the mock HTTP requests before each test method."""
         config = {'return_value.json.side_effect': [
-            cls.org_payload, cls.repos_payload
+            self.org_payload, self.repos_payload
         ]}
-        cls.get_patcher = patch('requests.get', **config)
-        cls.mock_get = cls.get_patcher.start()
+        self.get_patcher = patch('requests.get', **config)
+        self.mock_get = self.get_patcher.start()
 
-    @classmethod
-    def tearDownClass(cls):
-        """Tears down the mock HTTP requests."""
-        cls.get_patcher.stop()
+    def tearDown(self):
+        """Tears down the mock HTTP requests after each test method."""
+        self.get_patcher.stop()
 
     def test_public_repos(self):
         """Tests the public_repos method with no license specified."""
