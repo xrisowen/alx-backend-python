@@ -30,6 +30,8 @@ class User(AbstractUser):
         choices=Role.choices,
         default=Role.GUEST,
     )
+    
+    password_hash = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -91,7 +93,7 @@ class Message(models.Model):
     A model to represent a message within a conversation.
     """
     message_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    # One-to-many relationship with User (the sender)
+    # One-to-many relationship with User (the sender.)
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
     # One-to-many relationship with Conversation
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
