@@ -1,93 +1,87 @@
-from rest_framework import viewsets, mixins, status, serializers
+from rest_framework import viewsets, status, filters
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import Conversation, Message, User
-from .serializers import ConversationSerializer, MessageSerializer, UserSerializer
-from django.db import models
+from django.shortcuts import render, get_object_or_404
+from .models import User, Conversation, Message
+from .serializers import UserSerializer, ConversationSerializer, MessageSerializer
 
-class ConversationViewSet(mixins.CreateModelMixin,
-                          mixins.ListModelMixin,
-                          mixins.RetrieveModelMixin,
-                          viewsets.GenericViewSet):
-    """
-    A ViewSet for managing conversations.
 
-    - list: Retrieve a list of all conversations for the authenticated user.
-    - retrieve: Retrieve a single conversation by its ID.
-    - create: Create a new conversation.
-    """
+# --------------------
+# Conversation ViewSet
+# --------------------
+
+
+class ConversationViewSet(viewsets.ModelViewSet):
+    queryset = Conversation.objects.all().prefetch_related("participants", "messages")
     serializer_class = ConversationSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        """
-        Returns conversations where the authenticated user is a participant.
-        """
-        return Conversation.objects.filter(participants=self.request.user).order_by('-created_at')
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["participants__email"]
 
     def create(self, request, *args, **kwargs):
         """
-        Create a new conversation with multiple participants.
+        Create a new conversation with participants.
+        Expected JSON:
+        {
+            "participants": [
+                "user_id1",
+                "user_id2",
+                ...
+            ]
+        }
         """
-        participants_data = request.data.get('participants')
+        participant_ids = request.data.get("participants", [])
+        if len(participant_ids) < 2:
+            return Response(
+                {"error": "A conversation must have atleast 2 participants."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        participants = User.objects.filter(user_id__in=participant_ids)
+        if participants.count() != len(participant_ids):
+            return Response(
+                {"error": "One or more participants do not exist."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        if not isinstance(participants_data, list) or len(participants_data) < 1:
-            return Response({'error': 'A list of at least one participant ID is required.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            participants = [request.user]
-            for user_id in participants_data:
-                user = User.objects.get(pk=user_id)
-                participants.append(user)
-        except User.DoesNotExist:
-            return Response({'error': 'One or more participant IDs were not found.'},
-                            status=status.HTTP_400_BAD_REQUEST)
-        
-        # Check for existing conversation with the same participants
-        # This is a simplified check for exact participant matches
-        existing_conversation = Conversation.objects.filter(participants__in=participants) \
-                                                    .annotate(p_count=models.Count('participants')) \
-                                                    .filter(p_count=len(participants)) \
-                                                    .first()
-        if existing_conversation:
-            return Response(ConversationSerializer(existing_conversation).data, status=status.HTTP_200_OK)
-
-        new_conversation = Conversation.objects.create()
-        new_conversation.participants.set(participants)
-        serializer = ConversationSerializer(new_conversation)
+        conversation = Conversation.objects.create()
+        conversation.participants.set(participants)
+        serializer = self.get_serializer(conversation)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
-class MessageViewSet(mixins.CreateModelMixin,
-                     mixins.ListModelMixin,
-                     mixins.RetrieveModelMixin,
-                     viewsets.GenericViewSet):
-    """
-    A ViewSet for managing messages within a conversation.
+# ---------------------
+# Message ViewSet
+# ---------------------
 
-    - list: Retrieve a list of messages for a specific conversation.
-    - create: Send a new message to a conversation.
-    """
+
+class MessageViewSet(viewsets.ModelViewSet):
+    queryset = Message.objects.all().select_related("sender", "conversation")
     serializer_class = MessageSerializer
-    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter]
+    search_fields = ["message_body"]
 
-    def get_queryset(self):
+    def create(self, request, *args, **kwargs):
         """
-        Returns messages for a specific conversation, ordered by creation time.
+        Send a new message in a conversation.
+        Expected JSON:
+        {
+            "conversation": "conversation_id",
+            "message_body": "",
+            "sender": "user_id"
+        }
         """
-        conversation_id = self.kwargs['conversation_pk']
-        return Message.objects.filter(conversation_id=conversation_id).order_by('sent_at')
+        conversation_id = request.data.get.get("conversation")
+        sender_id = request.data.get("sender")
+        message_body = request.data.get("message_body")
 
-    def perform_create(self, serializer):
-        """
-        Set the sender and conversation for the message before saving.
-        """
-        conversation_id = self.kwargs['conversation_pk']
-        conversation = get_object_or_404(Conversation, pk=conversation_id)
-        # Check if the user is a participant in the conversation
-        if self.request.user not in conversation.participants.all():
-            raise serializers.ValidationError("You are not a participant in this conversation.")
+        if not conversation_id or not sender_id or not message_body:
+            return Response(
+                {"error": "conversation, sender, and message_body are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        serializer.save(sender=self.request.user, conversation=conversation)
+        message = Message.objects.create(
+            conversation_id=conversation_id,
+            sender_id=sender_id,
+            message_body=message_body,
+        )
+        serializer = self.get_serializer(message)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
